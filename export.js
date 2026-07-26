@@ -2,7 +2,7 @@
 function yyyymmdd(){const d=new Date();return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;}
 
 function exportViolationsToExcel(violations){
-  const rows=violations.map((v,i)=>({'#':i+1,'Tactical ID':v.activityId,'Rule ID':v.ruleId,'Category':v.category,'Rule Name':v.ruleName,'Severity':v.severity,'Tier':`Tier ${v.tier}`,'Region':v.region,'Market':v.market,'Activity Type':v.activityType,'Activity / Item':v.activityName,'Detail':v.detail,'Activity Start':fmtDate(v.startDate),'Activity End':fmtDate(v.endDate),'Status':v.status==='accepted'?'Accepted':v.status==='action-required'?'Action Required':'Pending Review','What Needs to Change':v.comment||''}));
+  const rows=violations.map((v,i)=>({'#':i+1,'Tactical ID':v.activityId,'Rule ID':v.ruleId,'Category':v.category,'Rule Name':v.ruleName,'Severity':v.severity,'Tier':getTierLabel(v.market),'Region':v.region,'Market':v.market,'Activity Type':v.activityType,'Activity / Item':v.activityName,'Detail':v.detail,'Activity Start':fmtDate(v.startDate),'Activity End':fmtDate(v.endDate),'Status':v.status==='accepted'?'Accepted':v.status==='action-required'?'Action Required':'Pending Review','What Needs to Change':v.comment||''}));
   const ws=XLSX.utils.json_to_sheet(rows);
   ws['!cols']=[{wch:4},{wch:12},{wch:8},{wch:14},{wch:42},{wch:10},{wch:7},{wch:14},{wch:22},{wch:22},{wch:36},{wch:70},{wch:12},{wch:12},{wch:16},{wch:50}];
   const wb=XLSX.utils.book_new();
@@ -17,7 +17,7 @@ function exportViolationsToExcel(violations){
 
 function exportViolationsToCSV(violations){
   const headers=['Tactical ID','Rule ID','Category','Rule Name','Severity','Tier','Region','Market','Activity Type','Activity','Detail','Activity Start','Activity End','Status','What Needs to Change'];
-  const rows=violations.map(v=>[v.activityId,v.ruleId,v.category,v.ruleName,v.severity,`Tier ${v.tier}`,v.region,v.market,v.activityType,v.activityName,v.detail,fmtDate(v.startDate),fmtDate(v.endDate),v.status==='accepted'?'Accepted':v.status==='action-required'?'Action Required':'Pending',v.comment||'']);
+  const rows=violations.map(v=>[v.activityId,v.ruleId,v.category,v.ruleName,v.severity,getTierLabel(v.market),v.region,v.market,v.activityType,v.activityName,v.detail,fmtDate(v.startDate),fmtDate(v.endDate),v.status==='accepted'?'Accepted':v.status==='action-required'?'Action Required':'Pending',v.comment||'']);
   const csv=[headers,...rows].map(r=>r.map(c=>{const s=String(c||'').replace(/"/g,'""');return(s.includes(',')||s.includes('"')||s.includes('\n'))?`"${s}"`:s;}).join(',')).join('\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);

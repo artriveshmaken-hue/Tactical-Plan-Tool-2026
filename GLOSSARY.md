@@ -32,6 +32,22 @@ _Avoid_: Partnership, contract
 A separate, partner-specific identifier (distinct from Tactical ID and Project No.) that stays the same for a given JMP contract term across the Cycle where it's signed (as New JMP) and the following Cycle where it continues (as Existing JMP). The primary way to recognise "the same JMP" year over year — Activity Name alone can't be trusted for this, since names carry a year suffix that changes every Cycle (e.g. "TUI DACH JMP 2026-2027" → "TUI DACH JMP 2027-2028").
 _Avoid_: Partner ID, contract ID
 
+**Activity Signature**:
+The set of rules that decide whether a 2027 Activity is a continuation of a 2026 one. Five passes are tried in order of confidence — exact name, JMP-ID, exact name after a retype, year-stripped name, unique Anchor Token — and the first confident match wins. Needed because Activity Names embed the year, so identical strings across Cycles are the exception rather than the rule.
+_Avoid_: Fuzzy match, activity mapping
+
+**Anchor Token**:
+The identifying prefix of an Activity Name — everything before its first year token, which is where the event or partner sits ("itb berlin", "wtm", "iltm"). Used only by the last Activity Signature pass, and only when it resolves to exactly one candidate. Deliberately keeps more than the first word so that "ITB Berlin" and "ITB China" stay distinct.
+_Avoid_: Prefix, keyword, stem
+
+**Type Family**:
+A grouping of Activity Types treated as interchangeable when matching across Cycles. Only one exists: all JMP types (New JMP, Existing JMP, Cruise JMP and typo variants) form a single family, because a contract signed as a New JMP appears as an Existing JMP the following Cycle.
+_Avoid_: Type group, category
+
+**Matched by**:
+The Activity Signature pass that paired a given Activity with its prior-Cycle equivalent, surfaced as a column in the Market Review comparison so a reviewer can audit the pairing rather than trust it blindly.
+_Avoid_: Match reason, confidence
+
 **Violation**:
 A single instance of an Activity (or a Market, for market-level rules) failing a compliance rule during a Review. Generated fresh by the rules engine on every analysis — a Violation only exists for as long as its triggering condition is still true.
 _Avoid_: Flag, issue, finding
@@ -49,8 +65,12 @@ The mandatory free-text explanation recorded when a Violation is marked Accepted
 _Avoid_: Comment, note, reason
 
 **Tier**:
-A market's priority classification for JMP analysis — Tier 1 (Priority), Tier 2 (Growth), or Tier 3 (Emerging, excluded from JMP analysis).
-_Avoid_: Priority level (this is Activity Priority 1/2/3, a different concept)
+A market's priority classification for JMP analysis, from a fixed list — **Tier 1** (Priority) or **Tier 2** (Growth). Everything else is **Others**: entries such as Exhibitions, Global Partnerships, IO Office and PR & Marketing, which are used as markets for grouping but are not tiered markets. There is no Tier 3.
+_Avoid_: Tier 3, Emerging; Priority level (that is Activity Priority 1/2/3, a different concept)
+
+**Global Filter**:
+The scoping selected in the top filter bar (Region, Tier, Market, Activity Type, Priority — each multi-select). It is the only place activities are scoped, and it applies to the Review, the Baseline, the Violation list and the rule counts together, so both sides of a comparison always cover the same ground.
+_Avoid_: Local filter, page filter
 
 **Domestic**:
 The UAE-internal market, exempt from rules that assume an international JMP contract structure (e.g. rule 1.7 does not apply to Domestic).

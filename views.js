@@ -10,7 +10,7 @@ const PAL=['#1F3864','#2E5FA3','#C00000','#C8A755','#15803D','#7C3AED','#0891B2'
 // ── Shared helpers ────────────────────────────────────────
 function tierBadge(t){
   const cls=t===1?'tier-1':t===2?'tier-2':'tier-3';
-  const lbl=t===1?'T1 Priority':t===2?'T2 Growth':'T3 Emerging';
+  const lbl=t===1?'T1 Priority':t===2?'T2 Growth':'Others';
   return `<span class="tier-badge ${cls}">${lbl}</span>`;
 }
 function regionBadge(r){
@@ -46,7 +46,7 @@ function getTypeBucket(atype){
 // ══════════════════════════════════════════════════════════
 function renderOverview(state){
   const {acts, violations, baseline, review} = state;
-  const a26 = baseline.activities||[];
+  const a26 = state.acts26||[];   // globally filtered 2026 side — keeps YoY apples-to-apples (F1)
   const a27 = review.activities||[];
 
   const tot27=acts.reduce((s,a)=>s+a.cashflow,0);
@@ -190,7 +190,7 @@ function renderOverview(state){
 // ══════════════════════════════════════════════════════════
 function renderPortfolio(state){
   const {acts, violations, baseline} = state;
-  const a26 = baseline.activities||[];
+  const a26 = state.acts26||[];   // globally filtered 2026 side (F1)
   const tot27=acts.reduce((s,a)=>s+a.cashflow,0);
   const tot26=a26.reduce((s,a)=>s+a.cashflow,0);
 
@@ -413,7 +413,7 @@ function renderPortfolio(state){
 // ══════════════════════════════════════════════════════════
 function renderMarket(state, selMkt){
   const {acts, violations, baseline} = state;
-  const a26 = baseline.activities||[];
+  const a26 = state.acts26||[];   // globally filtered 2026 side (F1)
   const markets=[...new Set(acts.map(a=>a.market).filter(Boolean))].sort((a,b)=>{const td=getTier(a)-getTier(b);return td||a.localeCompare(b);});
   const mkt = selMkt||markets[0]||'';
 
@@ -471,24 +471,25 @@ function renderMarket(state, selMkt){
 
   function chk(pass,text,note=''){return`<div class="check-item ${pass?'pass':'fail'}"><span class="check-icon">${pass?'✅':'❌'}</span><div><div>${text}</div>${note?`<div class="check-detail">${note}</div>`:''}</div></div>`;}
 
-  // Activity comparison (JMPs matched via JMP-ID, not name — see ADR-0002)
-  const m26ByName={};m26.forEach(a=>{m26ByName[`${a.market}||${(a.activityName||'').toLowerCase().trim()}`]=a;});
-  const jmpIdx26mkt=buildJmpIndex(m26);
+  // Activity comparison — uses the shared Activity Signature match so every view, rule and
+  // export agrees on what pairs with what (see ADR-0003). `tier` is surfaced as "Matched by".
+  const ym=state.yearMatch||buildYearMatch(a26,acts);
   const matchedM26=new Set();
   const compRows=[];
   m27.forEach(a=>{
-    const a26m=matchPriorYear(a,m26ByName,jmpIdx26mkt);
-    if(!a26m){compRows.push({status:'new',a27:a,a26:null,cfDiff:a.cashflow,changes:[]});}
+    const hit=ym.matchOf.get(a);
+    const a26m=hit?.prior;
+    if(!a26m){compRows.push({status:'new',a27:a,a26:null,cfDiff:a.cashflow,changes:[],tier:null});}
     else{
       matchedM26.add(a26m);
       const ch=[];
       if(Math.abs(a.cashflow-a26m.cashflow)>500)ch.push({field:'Cashflow',from:a26m.cashflow,to:a.cashflow,diff:a.cashflow-a26m.cashflow});
       if(a.priority!==a26m.priority&&a.priority&&a26m.priority)ch.push({field:'Priority',from:a26m.priority,to:a.priority,diff:0});
       if(a.activityType!==a26m.activityType)ch.push({field:'Type',from:a26m.activityType,to:a.activityType,diff:0});
-      compRows.push({status:ch.length?'changed':'same',a27:a,a26:a26m,cfDiff:a.cashflow-(a26m.cashflow||0),changes:ch});
+      compRows.push({status:ch.length?'changed':'same',a27:a,a26:a26m,cfDiff:a.cashflow-(a26m.cashflow||0),changes:ch,tier:hit.tier});
     }
   });
-  m26.forEach(a=>{if(!matchedM26.has(a))compRows.push({status:'removed',a27:null,a26:a,cfDiff:-a.cashflow,changes:[]});});
+  m26.forEach(a=>{if(!matchedM26.has(a))compRows.push({status:'removed',a27:null,a26:a,cfDiff:-a.cashflow,changes:[],tier:null});});
   compRows.sort((a,b)=>{const ord={new:0,changed:1,removed:2,same:3};return(ord[a.status]||4)-(ord[b.status]||4);});
   const added=compRows.filter(r=>r.status==='new').length;
   const removed=compRows.filter(r=>r.status==='removed').length;
@@ -501,7 +502,7 @@ function renderMarket(state, selMkt){
     <div class="market-selector mb20">
       <label>Market:</label>
       <select id="mkt-sel">
-        ${markets.map(m=>`<optgroup label="Tier ${getTier(m)}">` ).filter((v,i,a)=>a.indexOf(v)===i).join('')}
+        ${markets.map(m=>`<optgroup label="${getTierLabel(m)}">` ).filter((v,i,a)=>a.indexOf(v)===i).join('')}
         ${markets.map(m=>`<option value="${m}"${m===mkt?' selected':''}>${m}</option>`).join('')}
       </select>
       ${tierBadge(getTier(mkt))} ${regionBadge(getRegion(mkt))}
@@ -610,7 +611,7 @@ function renderMarket(state, selMkt){
       <div class="tbl-scroll tbl-scroll-h">
         <table class="dt">
           <thead><tr>
-            <th>Status</th><th>ID</th><th>Activity Name</th><th>Type</th>
+            <th>Status</th><th>Matched by</th><th>ID</th><th>Activity Name</th><th>Type</th>
             <th class="td-c">P</th><th class="th-r">2026 CF</th><th class="th-r">2027 CF</th>
             <th class="th-r">Change</th><th>Lock</th><th>Owner</th><th>Violations</th>
           </tr></thead>
@@ -623,6 +624,7 @@ function renderMarket(state, selMkt){
               const cf26v=row.a26?.cashflow||0, cf27v=row.a27?.cashflow||0;
               return`<tr class="${rowCls}${row.status==='same'?' same-row-mkt hidden':''}">
                 <td><span class="badge ${badgeMap[row.status]||'b-low'}" style="font-size:.62rem">${row.status.toUpperCase()}</span></td>
+                <td>${row.tier?`<span class="match-tier${row.tier==='Exact name'?'':' match-tier-fuzzy'}" title="How this row was paired with 2026">${row.tier}</span>`:'<span class="t-muted" style="font-size:.68rem">—</span>'}</td>
                 <td class="t-muted" style="font-size:.7rem">${a?.id||'—'}</td>
                 <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.78rem" title="${a?.activityName||''}">${a?.activityName||'—'}</td>
                 <td>${typChip(a?.activityType||'—')}</td>
@@ -689,17 +691,27 @@ function renderMarket(state, selMkt){
 // ══════════════════════════════════════════════════════════
 // VIEW 4 — CALENDAR: Annual Schedule
 // ══════════════════════════════════════════════════════════
+// Human-readable description of what the global filter bar currently has in scope.
+function calScopeLabel(state){
+  const f=state.filters||{};
+  const parts=[];
+  if(f.market?.length)parts.push(f.market.join(', '));
+  else if(f.region?.length)parts.push(f.region.join(', '));
+  else if(f.tier?.length)parts.push(f.tier.map(t=>'Tier '+t).join(', '));
+  else parts.push('All Markets');
+  if(f.type?.length)parts.push(f.type.join(', '));
+  if(f.priority?.length)parts.push(f.priority.map(p=>'P'+p).join(', '));
+  return parts.join(' · ');
+}
 function renderCalendar(state){
+  // Region / Market / Activity Type scoping comes from the global filter bar only — the Calendar
+  // used to duplicate those three filters, which compounded invisibly with the global ones (F4).
   const acts = state.acts||[];
   const allMarkets=[...new Set(acts.map(a=>a.market).filter(Boolean))].sort();
-  const allTypes=[...new Set(acts.map(a=>a.activityType).filter(Boolean))].sort();
-  const allRegions=[...new Set(allMarkets.map(m=>getRegion(m)))].filter(r=>r!=='Other').sort();
-  let selRegions=[], selMarkets=[], selTypes=[];
 
   function getActsFiltered(market, monthIdx){
     return acts.filter(a=>{
       if(a.market!==market) return false;
-      if(selTypes.length && !selTypes.includes(a.activityType)) return false;
       if(!a.startDate&&!a.endDate){
         const ci=MONTH_LABELS.findIndex(m=>(a.monthly[m]||0)>0);
         return ci===monthIdx;
@@ -710,20 +722,15 @@ function renderCalendar(state){
     });
   }
 
-  function getVisibleMarkets(){
-    if(selMarkets.length) return selMarkets;
-    if(selRegions.length) return allMarkets.filter(m=>selRegions.includes(getRegion(m)));
-    return allMarkets;
-  }
+  function getVisibleMarkets(){ return allMarkets; }
 
   function getBottomCF(){
-    return MONTH_LABELS.map(mo=>acts.filter(a=>{
-      if(selMarkets.length && !selMarkets.includes(a.market)) return false;
-      if(selRegions.length && !selRegions.includes(getRegion(a.market))) return false;
-      if(selTypes.length && !selTypes.includes(a.activityType)) return false;
-      return true;
-    }).reduce((s,a)=>s+(a.monthly[mo]||0),0));
+    return MONTH_LABELS.map(mo=>acts.reduce((s,a)=>s+(a.monthly[mo]||0),0));
   }
+
+  // Cashflow actually booked against one month, from the monthly breakdown — an activity spanning
+  // May–Nov must not report its full annual figure in all seven months (item 5).
+  function monthCF(a, monthIdx){ return a.monthly[MONTH_LABELS[monthIdx]]||0; }
 
   function safeId(mkt){ return mkt.replace(/[^a-zA-Z0-9]/g,'_'); }
 
@@ -733,7 +740,7 @@ function renderCalendar(state){
     const cellClass= (n) => n===0?'cal-0':n<=2?'cal-1':n<=5?'cal-2':n<=10?'cal-3':'cal-4';
     const tierBadgeSmall = (t) => {
       const cls=t===1?'tier-1':t===2?'tier-2':'tier-3';
-      return '<span class="tier-badge '+cls+'">'+(t===1?'T1':t===2?'T2':'T3')+'</span>';
+      return '<span class="tier-badge '+cls+'">'+(t===1?'T1':t===2?'T2':'Oth')+'</span>';
     };
 
     let html = '<div style="overflow-x:auto"><table class="cal-table"><thead>';
@@ -772,9 +779,7 @@ function renderCalendar(state){
     if(grid) grid.innerHTML = renderGrid();
     const cfData = getBottomCF();
     const titleEl = document.getElementById('cal-cf-title');
-    const mktLabel = selMarkets.length ? selMarkets.join(', ') : selRegions.length ? selRegions.join(', ') : 'All Markets';
-    const typeLabel = selTypes.length ? ' \xb7 '+selTypes.join(', ') : '';
-    if(titleEl) titleEl.textContent = 'Monthly Cashflow \u2014 '+mktLabel+typeLabel;
+    if(titleEl) titleEl.textContent = 'Monthly Cashflow \u2014 '+calScopeLabel(state);
     if(Charts['c-cal-cf']) try{ Charts['c-cal-cf'].destroy(); }catch(e){}
     const canvas = document.getElementById('c-cal-cf');
     if(canvas) Charts['c-cal-cf'] = new Chart(canvas,{
@@ -787,18 +792,10 @@ function renderCalendar(state){
     });
   }
 
-  // Build filter controls HTML
-  const regionOpts = allRegions.map(r=>'<label class="ms-opt"><input type="checkbox" value="'+r+'"> '+r+'</label>').join('');
-  const mktOpts   = allMarkets.map(m=>'<label class="ms-opt"><input type="checkbox" value="'+m+'"> '+m+'</label>').join('');
-
   document.getElementById('view-area').innerHTML =
     '<div class="section-hd">Annual Calendar 2027 <small>Activity scheduling \u2014 click any cell to inspect</small></div>'+
     '<div class="cal-filter-bar mb20">'+
-      buildMS('caltype','Activity Type',allTypes)+
-      '<div style="width:1px;background:var(--g200);margin:0 8px;align-self:stretch"></div>'+
-      '<div class="ms-wrap" id="ms-calreg"><button class="ms-btn" onclick="toggleMS(\'ms-calreg\')">Region</button><div class="ms-panel hidden">'+regionOpts+'<div class="ms-divider"></div><div class="ms-clear" onclick="clearMS(\'ms-calreg\',\'Region\')">Clear</div></div></div>'+
-      '<div class="ms-wrap" id="ms-calmkt"><button class="ms-btn" onclick="toggleMS(\'ms-calmkt\')">Market</button><div class="ms-panel hidden">'+mktOpts+'<div class="ms-divider"></div><div class="ms-clear" onclick="clearMS(\'ms-calmkt\',\'Market\')">Clear</div></div></div>'+
-      '<button class="btn-ghost btn-sm" onclick="calReset()">Reset</button>'+
+      '<span style="font-size:.76rem;color:var(--g400)">Showing: <strong style="color:var(--g700)">'+calScopeLabel(state)+'</strong> \u2014 use the filter bar above to narrow</span>'+
       '<div style="margin-left:auto;display:flex;gap:10px;font-size:.74rem;align-items:center">'+
         '<span class="cal-1" style="padding:2px 8px;border-radius:3px">1-2</span>'+
         '<span class="cal-2" style="padding:2px 8px;border-radius:3px">3-5</span>'+
@@ -811,24 +808,6 @@ function renderCalendar(state){
     '<div class="card"><div class="card-title" id="cal-cf-title">Monthly Cashflow \u2014 All Markets</div>'+
       '<div class="chart-wrap"><canvas id="c-cal-cf"></canvas></div></div>';
 
-  function bindCalMS(msId, arr, label){
-    document.querySelector('#ms-'+msId+' .ms-panel')?.addEventListener('change', ()=>{
-      arr.length=0;
-      getMSVals('ms-'+msId).forEach(v=>arr.push(v));
-      updateMSBtn('ms-'+msId, label);
-      redrawAll();
-    });
-  }
-  bindCalMS('caltype', selTypes, 'Activity Type');
-  bindCalMS('calreg', selRegions, 'Region');
-  bindCalMS('calmkt', selMarkets, 'Market');
-
-  window.calReset = ()=>{
-    selTypes.length=0; selRegions.length=0; selMarkets.length=0;
-    clearMS('ms-caltype','Activity Type'); clearMS('ms-calreg','Region'); clearMS('ms-calmkt','Market');
-    redrawAll();
-  };
-
   window.calMonth = (mkt, mo, idx)=>{
     const sid = safeId(mkt);
     const detRow = document.getElementById('cal-det-'+sid);
@@ -838,19 +817,22 @@ function renderCalendar(state){
     if(detRow.classList.contains('hidden') || detIn.dataset.key !== mkt+'-'+mo){
       detIn.dataset.key = mkt+'-'+mo;
       if(monthActs.length){
-        let rows = monthActs.map(a=>
-          '<tr><td class="t-muted" style="font-size:.7rem">'+(a.id||'\u2014')+'</td>'+
+        const moTotal = monthActs.reduce((s,a)=>s+monthCF(a,idx),0);
+        let rows = monthActs.map(a=>{
+          const mcf = monthCF(a,idx);
+          return '<tr><td class="t-muted" style="font-size:.7rem">'+(a.id||'\u2014')+'</td>'+
           '<td style="font-size:.78rem">'+a.activityName+'</td>'+
           '<td><span class="type-chip" style="font-size:.62rem">'+a.activityType+'</span></td>'+
           '<td class="td-c">'+(a.priority||'\u2014')+'</td>'+
           '<td>'+fmtDate(a.startDate)+'</td>'+
           '<td class="'+(a.endDate&&a.endDate.getMonth()>=9?'t-amber':'')+'">'+fmtDate(a.endDate)+'</td>'+
-          '<td class="td-r t-mono">'+fmtNum(a.cashflow)+'</td></tr>'
-        ).join('');
-        detIn.innerHTML='<table class="dt" style="border-radius:0"><thead><tr><th>ID</th><th>'+mo+' \u2014 '+mkt+'</th><th>Type</th><th class="td-c">P</th><th>Start</th><th>End</th><th class="th-r">Cashflow</th></tr></thead><tbody>'+rows+'</tbody></table>';
+          '<td class="td-r t-mono'+(mcf?'':' t-muted')+'">'+fmtNum(mcf)+'</td>'+
+          '<td class="td-r t-mono t-muted">'+fmtNum(a.cashflow)+'</td></tr>';
+        }).join('');
+        detIn.innerHTML='<table class="dt" style="border-radius:0"><thead><tr><th>ID</th><th>'+mo+' \u2014 '+mkt+'</th><th>Type</th><th class="td-c">P</th><th>Start</th><th>End</th><th class="th-r">'+mo+' Cashflow</th><th class="th-r">Annual Total</th></tr></thead><tbody>'+rows+
+          '<tr style="font-weight:600;background:var(--g50)"><td colspan="6" class="td-r">'+mo+' total</td><td class="td-r t-mono">'+fmtNum(moTotal)+'</td><td></td></tr></tbody></table>';
       } else {
-        const typeNote = selTypes.length ? ' (' + selTypes.join(', ') + ')' : '';
-        detIn.innerHTML='<div style="padding:12px 16px;color:var(--g400);font-size:.82rem">No activities for '+mkt+' in '+mo+typeNote+'.</div>';
+        detIn.innerHTML='<div style="padding:12px 16px;color:var(--g400);font-size:.82rem">No activities for '+mkt+' in '+mo+'.</div>';
       }
       detRow.classList.remove('hidden');
     } else {
@@ -866,7 +848,7 @@ function renderCalendar(state){
     if(!detRow.classList.contains('hidden') && detIn.dataset.key==='full-'+mkt){
       detRow.classList.add('hidden'); return;
     }
-    const mActs = acts.filter(a=>a.market===mkt && (!selTypes.length||selTypes.includes(a.activityType)))
+    const mActs = acts.filter(a=>a.market===mkt)
       .sort((a,b)=>(a.startDate||new Date(0))-(b.startDate||new Date(0)));
     detIn.dataset.key = 'full-'+mkt;
     let rows = mActs.map(a=>
@@ -909,23 +891,18 @@ function applyStoredDecisions(violations){
 }
 
 function renderViolations(state){
+  // `state.violations` is already scoped by the global filter bar (Region/Tier/Market/Type/
+  // Priority). Only violation-specific dimensions are filtered locally here — see ADR-0004.
   let viols=state.violations;
-  let fSev=[],fRegion=[],fTier=[],fMkt=[],fType=[],fRule=[],fCat=[],fStatus=[];
+  let fSev=[],fRule=[],fCat=[],fStatus=[];
   const sum=summarise(viols);
 
-  const allRegions=[...new Set(viols.map(v=>v.region))].sort();
-  const allMkts=[...new Set(viols.map(v=>v.market))].sort();
-  const allTypes=[...new Set(viols.map(v=>v.activityType).filter(t=>t&&t!=='—'))].sort();
   const allRules=[...new Set(viols.map(v=>v.ruleId))].sort();
   const allCats=[...new Set(viols.map(v=>v.category||''))].filter(Boolean).sort();
 
   function filtered(){
     return viols.filter(v=>{
       if(fSev.length    && !fSev.includes(v.severity))    return false;
-      if(fRegion.length && !fRegion.includes(v.region))   return false;
-      if(fTier.length   && !fTier.includes(String(v.tier))) return false;
-      if(fMkt.length    && !fMkt.includes(v.market))      return false;
-      if(fType.length   && !fType.includes(v.activityType)) return false;
       if(fRule.length   && !fRule.includes(v.ruleId))     return false;
       if(fCat.length    && !fCat.includes(v.category||'')) return false;
       if(fStatus.length && !fStatus.includes(v.status))   return false;
@@ -986,10 +963,6 @@ function renderViolations(state){
         </div>
         <div class="flex-gap" style="flex-wrap:wrap">
           ${buildMS('vsev','Severity',['HIGH','MEDIUM','LOW'])}
-          ${buildMS('vreg','Region',allRegions)}
-          ${buildMS('vtier','Tier',[{value:'1',label:'Tier 1'},{value:'2',label:'Tier 2'},{value:'3',label:'Tier 3'}])}
-          ${buildMS('vmkt','Market',allMkts)}
-          ${buildMS('vtype','Activity Type',allTypes)}
           ${buildMS('vrule','Rule',allRules.map(r=>({value:r,label:`${r} — ${RULE_META[r]?.name?.slice(0,25)||r}`})))}
           ${buildMS('vcat','Category',allCats)}
           ${buildMS('vstat','Status',[{value:'pending',label:'Pending'},{value:'accepted',label:'Accepted'},{value:'action-required',label:'Action Required'}])}
@@ -1016,11 +989,12 @@ function renderViolations(state){
       updateMSBtn(`ms-${msId}`,label); renderTbl();
     });
   }
-  bindVMS('vsev',fSev,'Severity'); bindVMS('vreg',fRegion,'Region'); bindVMS('vtier',fTier,'Tier');
-  bindVMS('vmkt',fMkt,'Market'); bindVMS('vtype',fType,'Activity Type');
-  bindVMS('vrule',fRule,'Rule'); bindVMS('vcat',fCat,'Category'); bindVMS('vstat',fStatus,'Status');
-  document.getElementById('btn-xl')?.addEventListener('click',()=>exportViolationsToExcel(viols));
-  document.getElementById('btn-csv')?.addEventListener('click',()=>exportViolationsToCSV(viols));
+  bindVMS('vsev',fSev,'Severity'); bindVMS('vrule',fRule,'Rule');
+  bindVMS('vcat',fCat,'Category'); bindVMS('vstat',fStatus,'Status');
+  // Export exactly what is on screen — global filters (already applied to `viols`) plus the
+  // local violation filters (F5).
+  document.getElementById('btn-xl')?.addEventListener('click',()=>exportViolationsToExcel(filtered()));
+  document.getElementById('btn-csv')?.addEventListener('click',()=>exportViolationsToCSV(filtered()));
 
   requestAnimationFrame(()=>{
     const top8=sum.topMarkets.slice(0,8);
@@ -1077,17 +1051,17 @@ function renderRulesRef(state){
     '1.4':{ desc:'A New JMP signed in 2027 should not have cashflow in the same year. Payment should follow contract end (typically 2028+).', action:'If cashflow exists, confirm it is partial and not the full contract value. Full payment in signing year is a violation.', why:'New JMPs are commitments for future delivery — paying in the signing year creates financial exposure.' },
     '1.5':{ desc:'Webinars and online activities must be zero-cost. Any cashflow on a webinar activity is flagged.', action:'Remove budget from webinar activities. If there are real costs, reclassify the activity type.', why:'Webinars are a low-cost engagement tool. Budget should be allocated to in-person/high-value activities.' },
     '1.6':{ desc:'Admin Miscellaneous budget lines are not permitted. All costs must be coded to specific task codes.', action:'Remove or recode the activity using a specific, approved task code.', why:'Miscellaneous lines obscure where money is being spent and prevent proper KPI tracking.' },
-    '1.7':{ desc:'An Existing JMP that is marked as Locked but has zero cashflow is suspicious — the contract value may be missing.', action:'Check the contract value and update the cashflow figure. If the JMP was terminated, remove or mark as cancelled.', why:'A locked JMP with no cashflow typically means a data entry error.' },
+    '1.7':{ desc:'An Existing JMP that is marked as Locked but has zero cashflow is suspicious — the contract value may be missing. Not applied to the Domestic market, where short contracts make a zero figure legitimate.', action:'Check the contract value and update the cashflow figure. If the JMP was terminated, remove or mark as cancelled.', why:'A locked JMP with no cashflow typically means a data entry error.' },
     '2.2':{ desc:'JMP contracts ending in Q4 (Oct–Dec) create year-end payment concentration. Q1, Q2 and Q3 closures are fine.', action:'Renegotiate JMP contract end dates to close by end of Q3 (September) so payment occurs before year-end.', why:'Q4 contract closures pile payments into the most pressured quarter of the year.' },
     '2.6':{ desc:'Every JMP must have a Hotel Guest target — the number of hotel overnights the trade partner is expected to generate.', action:'Add the Hotel Guest target for each JMP activity. This is the primary KPI for JMPs and must be agreed with the partner.', why:'Without a hotel guest target, there is no way to measure whether the JMP is delivering value.' },
     '3.1':{ desc:'"Others" is not a valid activity type. Every activity must be categorised into a specific approved type.', action:'Review the activity and assign the correct type from the predefined list.', why:'"Others" makes it impossible to track performance by activity type or benchmark against peers.' },
-    '3.2':{ desc:'Two activities with exactly the same name AND the same type in the same market are duplicates. Same name with different types (e.g. Mission vs Roadshow) is acceptable.', action:'Review and either merge the duplicate or give one a more specific name.', why:'Duplicates inflate activity counts and create double-counting in KPI reporting.' },
+    '3.2':{ desc:'Two activities in the same market are duplicates only when the name, the type AND both dates match. Same name on different dates (e.g. two Ramadan webinars a week apart) is a separate session, not a duplicate. Same name with different types is also acceptable.', action:'Review and either merge the duplicate or give one a more specific name.', why:'Duplicates inflate activity counts and create double-counting in KPI reporting.' },
     '3.3':{ desc:'A training or workshop activity that spans more than 31 days (1 month) is likely bundling multiple sessions into one line.', action:'Split the activity into individual sessions, each with its own start/end date, budget and attendee target.', why:'Bundled sessions make it impossible to track delivery, attendance and cost per session.' },
     '3.6':{ desc:'Webinar activities must be Priority 2 or Priority 3. Priority 1 (Committed) is not permitted for webinars.', action:'Change the priority of the webinar to P2 or P3.', why:'P1 activities are committed investments. Webinars are low-cost and should not be committed at the same level as in-person activities.' },
-    '3.8':{ desc:'All non-JMP activities must have at least one KPI — either a revenue target or an attendee/participant target. Exemptions: JMPs, GSA Retainer, Mission & Travel, Manpower, Admin, Projects, Expenses, Stand Build, Hospitality.', action:'Add a revenue figure or attendee target to the activity.', why:'Without KPIs, it is impossible to measure whether activities are delivering results.' },
+    '3.8':{ desc:'All non-JMP activities must have at least one KPI — either a revenue target or an attendee/participant target. Exemptions: JMPs, all retainers (GSA Retainer Fee, PR Mgmt Retainer), Mission & Travel, Manpower, Admin, Projects, Expenses, Stand Build, Hospitality.', action:'Add a revenue figure or attendee target to the activity.', why:'Without KPIs, it is impossible to measure whether activities are delivering results. Retainers are fixed fees and carry no KPI by design.' },
     '4.1':{ desc:'Mega FAM trips must target a minimum of 50 participants.', action:'Either increase the participant target to 50+ or reclassify the activity as a regular FAM trip.', why:'The "Mega FAM" designation implies scale. Below 50 participants, the activity does not justify the Mega FAM budget and format.' },
     '4.3':{ desc:'FAM trips should be scheduled during Ramadan or Early Summer (February–June). FAMs outside this window are flagged.', action:'Reschedule the FAM trip to the Feb–Jun window when possible.', why:'Ramadan and Early Summer are peak periods for trade partner interest and availability for Abu Dhabi experiences.' },
-    '5.1':{ desc:'Each market must plan at least 2 zero-budget activities during Ramadan 2027 (Feb 18 – Mar 20). Webinars and virtual sessions are preferred.', action:'Add zero-cost Ramadan activities (e.g. webinars, virtual B2B sessions) to the market plan.', why:'Ramadan is a high-priority period for Abu Dhabi promotion. Zero-budget activities ensure presence without financial commitment.' },
+    '5.1':{ desc:'Each market must plan at least 2 zero-budget activities in the Ramadan window (1 Jan – 15 Feb 2027). Matched on the activity dates, not the name. Webinars and virtual sessions are preferred.', action:'Add zero-cost Ramadan activities (e.g. webinars, virtual B2B sessions) to the market plan.', why:'Ramadan is a high-priority period for Abu Dhabi promotion. Zero-budget activities ensure presence without financial commitment.' },
     '6.1':{ desc:'A market can have multiple sales missions but not more than one per quarter. Two missions in the same quarter is a violation.', action:'Reschedule one of the conflicting missions to a different quarter, or justify why two missions are needed simultaneously.', why:'Multiple missions in the same quarter may indicate poor planning or duplicated effort.' },
     '6.3':{ desc:'Exhibition activities (ITB, WTM, ATM, etc.) must have a revenue KPI to justify participation.', action:'Add an expected revenue or lead generation figure to the exhibition activity.', why:'Exhibitions are expensive. Without a revenue target, there is no basis for evaluating whether participation is cost-effective.' },
     '8.4':{ desc:'A new activity with cashflow over AED 500,000 that has no equivalent in the 2026 plan needs documented rationale. JMPs, GSA and Missions are exempt.', action:'Add a description or note explaining why this new high-value activity has been included for the first time.', why:'Large new investments should have a clear strategic rationale, not just appear without context.' },

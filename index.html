@@ -7,7 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <!-- ?v= is a cache buster. GitHub Pages and browsers cache these files, so a reviewer can
+       otherwise keep running an old build after a deploy. Bump APP_VERSION below and every ?v=
+       here together whenever the app files change. -->
+  <link rel="stylesheet" href="style.css?v=2.0">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 </head>
@@ -40,6 +43,7 @@
     </div>
     <button id="btn-analyze" class="btn-analyze" disabled>▶ Run Analysis</button>
     <div class="upload-secure">🔒 All processing happens in your browser — no data leaves your device.</div>
+    <div class="upload-version">Build <span id="app-version">—</span></div>
   </div>
   <div id="loading-overlay" class="loading-overlay hidden">
     <div class="loading-ring"></div>
@@ -71,51 +75,18 @@
     <button class="nav-tab" data-view="rules">≡ Rules</button>
   </nav>
 
-  <div class="filter-bar">
-    <div class="flt-item"><label class="flt-label">Region</label>
-      <select id="flt-region" class="flt-select">
-        <option value="">All Regions</option>
-        <option value="Europe & CIS">Europe &amp; CIS</option>
-        <option value="APAC">APAC</option>
-        <option value="GCC">GCC</option>
-        <option value="UK & US">UK &amp; US</option>
-        <option value="PR">PR</option>
-        <option value="Global">Global</option>
-      </select>
-    </div>
-    <div class="flt-item"><label class="flt-label">Tier</label>
-      <select id="flt-tier" class="flt-select">
-        <option value="">All Tiers</option>
-        <option value="1">Tier 1 — Priority</option>
-        <option value="2">Tier 2 — Growth</option>
-        <option value="3">Tier 3 — Emerging</option>
-      </select>
-    </div>
-    <div class="flt-item"><label class="flt-label">Market</label>
-      <select id="flt-market" class="flt-select"><option value="">All Markets</option></select>
-    </div>
-    <div class="flt-item"><label class="flt-label">Activity Type</label>
-      <select id="flt-type" class="flt-select"><option value="">All Types</option></select>
-    </div>
-    <div class="flt-item"><label class="flt-label">Priority</label>
-      <select id="flt-priority" class="flt-select">
-        <option value="">All</option>
-        <option value="1">P1 — Committed</option>
-        <option value="2">P2 — High</option>
-        <option value="3">P3 — Low</option>
-      </select>
-    </div>
-    <button class="btn-ghost btn-sm" id="btn-reset-flt">Reset</button>
-  </div>
+  <!-- Global filter bar — multi-select, single source of truth for activity scoping (ADR-0004).
+       Built at upload time by populateFilters() in app.js. -->
+  <div class="filter-bar" id="filter-bar"></div>
 
   <div class="kpi-strip" id="kpi-strip"></div>
   <main id="view-area" class="view-area"></main>
 </div>
 
-<script src="parser.js"></script>
-<script src="rules.js"></script>
-<script src="export.js"></script>
-<script src="views.js"></script>
-<script src="app.js"></script>
+<script src="parser.js?v=2.0"></script>
+<script src="rules.js?v=2.0"></script>
+<script src="export.js?v=2.0"></script>
+<script src="views.js?v=2.0"></script>
+<script src="app.js?v=2.0"></script>
 </body>
 </html>

@@ -4,7 +4,8 @@ Every cross-year comparison (`compareYears()`, rule 1.1, rule 8.4) matched activ
 
 Inspection of real sample files (2026 and 2027 Tactical Details) found a `JMP-ID` column, unused by the parser, that reliably identifies the same contract term across the Cycle it's signed (as New JMP) and the following Cycle where it continues (as Existing JMP) — populated on ~95%+ of the rows where that link actually matters. We decided to match JMP-type activities across years by `JMP-ID` first, falling back to (year-suffix-stripped base name + Activity Start/End date continuity) only for the remaining JMPs with no `JMP-ID` on one or both sides.
 
-**Status**: accepted
+**Status**: superseded by ADR-0003 — the JMP-ID insight below still holds, but it is now one pass
+inside the general Activity Signature matcher rather than a JMP-only special case.
 
 ## Considered Options
 

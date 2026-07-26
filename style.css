@@ -194,6 +194,13 @@ tr.row-flag td{background:#FFF5F5!important}
 .ms-divider{height:1px;background:var(--g200);margin:4px 0}
 .ms-clear{padding:6px 14px;font-size:.76rem;color:var(--blue);cursor:pointer;font-weight:500}
 .ms-clear:hover{text-decoration:underline}
+/* Build indicator on the upload screen — lets a reviewer confirm they are not on a cached build */
+.upload-version{margin-top:10px;font-size:.68rem;color:var(--g400);letter-spacing:.04em;text-align:center}
+.flt-summary{font-size:.74rem;color:var(--g400);margin-left:auto}
+.flt-summary.active{color:var(--blue);font-weight:600}
+/* How a 2027 row was paired with its 2026 equivalent (Activity Signature tier) */
+.match-tier{font-size:.62rem;padding:2px 6px;border-radius:3px;background:var(--g50);color:var(--g700);border:1px solid var(--g200);white-space:nowrap}
+.match-tier-fuzzy{background:#FFF8E6;color:#8A6100;border-color:#F0DCA8}
 
 /* VIOLATIONS */
 .status-sel{font-size:.76rem;padding:5px 8px;border:1px solid var(--g200);border-radius:var(--r-sm);font-family:inherit;cursor:pointer;background:white;color:var(--g700);outline:none;min-width:140px}

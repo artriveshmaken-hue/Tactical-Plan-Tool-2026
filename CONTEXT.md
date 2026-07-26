@@ -113,8 +113,9 @@ China, France, Germany, India, Italy, Kuwait, Russia, Saudi Arabia, UAE, United 
 ### Tier 2 — Growth Markets (15)
 Armenia, Bahrain, Belgium, Canada, Egypt, Japan, Kazakhstan, Netherlands, Oman, Poland, Qatar, Romania, South Korea, Spain, Uzbekistan
 
-### Tier 3 — Emerging (excluded from JMP analysis)
-All others
+### Others (not a tier)
+Everything not named above — Exhibitions, Global Partnerships, IO Office, PR & Marketing, Domestic.
+These are used as markets for grouping and filtering but are not tiered markets. There is no Tier 3.
 
 ### Regions
 - **Europe & CIS**: France, Germany, Italy, Spain, Poland, Romania, Belgium, Netherlands, Russia, Armenia, Kazakhstan, Uzbekistan
@@ -132,7 +133,7 @@ All others
 | Rule | Description |
 |------|-------------|
 | 0.1 | Activity type not in predefined list |
-| 1.7 | Locked Existing JMP cashflow = 0 |
+| 1.7 | Locked Existing JMP cashflow = 0 (not applied to Domestic) |
 | 2.6 | JMP missing Hotel Guest target |
 | 5.1 | < 2 zero-budget Ramadan activities per market |
 
@@ -156,7 +157,7 @@ All others
 |------|-------------|
 | 1.5 | Webinar has non-zero budget |
 | 1.6 | Admin Miscellaneous line present |
-| 3.2 | Duplicate: same name AND same type |
+| 3.2 | Duplicate: same name AND type AND start/end dates (different dates = separate sessions) |
 | 3.3 | Training/Workshop spans >1 month |
 | 3.6 | Webinar at Priority 1 |
 | 4.3 | FAM trip outside Feb–Jun window |
@@ -167,8 +168,8 @@ All others
 
 ### KPI Exempt Types (Rule 3.8)
 All JMP types (New JMP, Existing JMP, Cruise JMP, and typo variants),
-GSA Retainer Fee, Mission & Travel, Manpower, Admin, Projects, Expenses,
-Stand Build, Hospitality
+all retainers (GSA Retainer Fee, PR Mgmt Retainer — fixed fees, no KPI by design),
+Mission & Travel, Manpower, Admin, Projects, Expenses, Stand Build, Hospitality
 
 ### Activity Type Buckets
 - **JMPs**: New JMP, Existing JMP, Cruise JMP (and typo variants)
@@ -186,8 +187,8 @@ Stand Build, Hospitality
 - Cost per guest (JMP): JMP budget only ÷ Hotel Guest targets
 - Shown per region and per market
 
-### Ramadan 2027
-Feb 18 – Mar 20, 2027
+### Ramadan Window 2027
+Jan 1 – Feb 15, 2027 (rule 5.1 — zero-budget Ramadan activities)
 
 ---
 
@@ -198,7 +199,10 @@ Existing JMP, B2B Comms, Expenses, Mission & Travel, GSA Retainer Fee,
 Corporate Activation, Newsletter, Cruise JMP, B2C Conversion,
 Content Partnership, Manpower, Projects, Admin, Mega FAM, Marketplace,
 Travel Trade Partnership, Co-Host Industry Event, Stand Build, Space Rent,
-Hospitality, Experience Abu Dhabi Workshop, Destination Sponsorship, Others
+Hospitality, Experience Abu Dhabi Workshop, Destination Sponsorship, Others,
+PR Mgmt Retainer, Event Participation
+
+Note: "Mission" is normalised to "Mission & Travel" on import.
 
 ---
 
@@ -206,10 +210,29 @@ Hospitality, Experience Abu Dhabi Workshop, Destination Sponsorship, Others
 
 1. **Visual design** is functional but not polished enough for Director-level review
 2. **Story flow** needs to be stronger — should read like an executive briefing
-3. **Market Review** needs richer analysis matching what Excel market tabs showed
-4. **Calendar** needs the activity type filter + cashflow chart at bottom
-5. **Violations** table needs to feel like an action centre, not just a list
-6. **Overall** needs better colour hierarchy, typography, and data density
+3. **Overall** needs better colour hierarchy, typography, and data density
+
+### Addressed (pilot feedback)
+- Violations tab is now an action centre: statuses persist, justification is mandatory,
+  Activity Start/End columns added, export matches what is on screen — see ADR-0001
+- Filters unified into one multi-select global bar applied to both years — see ADR-0004
+- Recurring activities no longer read as new year over year — see ADR-0003
+- Calendar shows each month's cashflow share instead of the full annual figure
+- Market Review has a KPI YoY comparison (Hotel Guests first) and a type-breakdown filter
+
+---
+
+## Deploying an update
+
+Browsers and GitHub Pages cache the JS/CSS, so a reviewer can keep running an old build after a
+push. **Whenever an app file changes, bump the version in two places together:**
+
+1. `APP_VERSION` at the top of `app.js`
+2. every `?v=` query string in `index.html` (one on `style.css`, five on the scripts)
+
+The build number is shown under the upload button, so anyone can confirm which version they are
+on — if it does not match what you deployed, they are on a cached copy and need a hard refresh
+(`Ctrl+Shift+R`).
 
 ---
 
