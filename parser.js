@@ -93,10 +93,10 @@ function parseTacticalDetails(wb) {
     );
     if (match) ws = wb.Sheets[match];
   }
-  if (!ws) { console.warn('Tactical Details not found. Sheets:', Object.keys(wb.Sheets)); return []; }
+  if (!ws) { console.warn('Tactical Details not found. Sheets:', Object.keys(wb.Sheets)); return { activities: [], has: {} }; }
 
   const rawRows = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
-  if (!rawRows.length) return [];
+  if (!rawRows.length) return { activities: [], has: {} };
 
   const keys = Object.keys(rawRows[0]);
   function fk(...variants) {
@@ -136,7 +136,7 @@ function parseTacticalDetails(wb) {
 
   const monthKeys = MONTH_COLS.map(m => fk(m));
 
-  return rawRows.map(r => {
+  const activities = rawRows.map(r => {
     if (!r[C.market] && !r[C.name]) return null;
     const mkt = C.market ? String(r[C.market] || '').trim() : '';
     if (!mkt || /^(total|grand total|subtotal)$/i.test(mkt)) return null;
@@ -174,6 +174,17 @@ function parseTacticalDetails(wb) {
       monthly,
     };
   }).filter(Boolean).filter(r => r.activityName || r.cashflow > 0);
+
+  // Which KPI columns this workbook actually contains. The 2026 baseline has no HotelGuests
+  // column at all, so a "2026 → 2027" comparison on it would read 0 → N and imply a huge gain
+  // from nothing. Views use these flags to say "not tracked" instead of inventing a zero.
+  const has = {
+    hotelGuests:  !!C.hotelGuests,
+    attendees:    !!C.attendees,
+    stakeholders: !!C.stakeholders,
+    revenue:      !!C.revenue,
+  };
+  return { activities, has };
 }
 
 function parseWorkbook(file) {
@@ -184,9 +195,9 @@ function parseWorkbook(file) {
       try {
         const wb = XLSX.read(new Uint8Array(e.target.result), { type:'array', cellDates:false });
         console.log('Sheets:', wb.SheetNames);
-        const activities = parseTacticalDetails(wb);
-        console.log('Activities parsed:', activities.length);
-        resolve({ activities, sheetNames: wb.SheetNames });
+        const parsed = parseTacticalDetails(wb);
+        console.log('Activities parsed:', parsed.activities.length, '| KPI columns present:', parsed.has);
+        resolve({ activities: parsed.activities, has: parsed.has, sheetNames: wb.SheetNames });
       } catch(err) { reject(err); }
     };
     reader.readAsArrayBuffer(file);

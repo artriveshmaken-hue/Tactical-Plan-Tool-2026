@@ -445,6 +445,9 @@ function renderMarket(state, selMkt){
   const totRev26=m26.reduce((s,a)=>s+(a.revenue||0),0);
   const totHG26=m26.reduce((s,a)=>s+(a.hotelGuests||0),0);
   const hgChange=totHG-totHG26;
+  // The 2026 baseline file has no HotelGuests column, so there is nothing to compare against —
+  // show that plainly rather than a 0 → N delta that reads as a huge gain from nothing.
+  const hg26Tracked=state.baseline?.has?.hotelGuests!==false;
 
   // Violations for this market
   const mktViols=violations.filter(v=>v.market===mkt);
@@ -520,10 +523,14 @@ function renderMarket(state, selMkt){
       <div class="mkt-sum-block ${tot27>tot26?'sum-change-up':'sum-change-down'}"><div class="kpi-label">Change</div><div class="kpi-value">${tot27>=tot26?'+':''}${fmtShort(tot27-tot26)}</div><div class="kpi-sub">${tot26?((tot27-tot26)/tot26*100).toFixed(1)+'%':'new'}</div></div>
       <div class="mkt-sum-divider"></div>
       <div class="mkt-sum-block"><div class="kpi-label">Activities</div><div class="kpi-value">${m27.length}</div><div class="kpi-sub">vs ${m26.length} in 2026</div></div>
+      ${hg26Tracked?`
       <div class="mkt-sum-block"><div class="kpi-label">2026 Hotel Guests</div><div class="kpi-value">${totHG26?fmtShort(totHG26):'—'}</div><div class="kpi-sub">JMP target</div></div>
       <div class="mkt-sum-arrow">→</div>
       <div class="mkt-sum-block ${hgChange>=0?'sum-up':'sum-down'}"><div class="kpi-label">2027 Hotel Guests</div><div class="kpi-value ${totHG===0?'t-red':''}">${totHG?fmtShort(totHG):'—'}</div><div class="kpi-sub">${totHG?'JMP target':'Missing data'}</div></div>
-      <div class="mkt-sum-block ${hgChange>=0?'sum-change-up':'sum-change-down'}"><div class="kpi-label">Hotel Guests Change</div><div class="kpi-value">${hgChange>=0?'+':''}${fmtShort(hgChange)}</div><div class="kpi-sub">${totHG26?(hgChange/totHG26*100).toFixed(1)+'%':'new'}</div></div>
+      <div class="mkt-sum-block ${hgChange>=0?'sum-change-up':'sum-change-down'}"><div class="kpi-label">Hotel Guests Change</div><div class="kpi-value">${hgChange>=0?'+':''}${fmtShort(hgChange)}</div><div class="kpi-sub">${totHG26?(hgChange/totHG26*100).toFixed(1)+'%':'new'}</div></div>`
+      :`
+      <div class="mkt-sum-block"><div class="kpi-label">Hotel Guests Target</div><div class="kpi-value ${totHG===0?'t-red':''}">${totHG?fmtShort(totHG):'—'}</div><div class="kpi-sub">${totHG?'2027 JMP target':'Missing data'}</div></div>
+      <div class="mkt-sum-block" title="The 2026 baseline file has no Hotel Guests column, so no year-on-year comparison is possible."><div class="kpi-label">vs 2026</div><div class="kpi-value t-muted" style="font-size:1rem">N/A</div><div class="kpi-sub">not tracked in 2026</div></div>`}
       <div class="mkt-sum-divider"></div>
       <div class="mkt-sum-block"><div class="kpi-label">Attendees Target</div><div class="kpi-value">${fmtShort(totAtt)}</div><div class="kpi-sub">vs ${fmtShort(totAtt26)} in 2026</div></div>
       <div class="mkt-sum-block"><div class="kpi-label">Stakeholders Target</div><div class="kpi-value">${fmtShort(totStak)}</div><div class="kpi-sub">vs ${fmtShort(totStak26)} in 2026</div></div>
@@ -567,7 +574,9 @@ function renderMarket(state, selMkt){
           <tr><td>Attendees (2026 → 2027)</td><td class="td-r">${fmtNum(totAtt26)} → ${fmtNum(totAtt)}</td></tr>
           <tr><td>Stakeholders (2026 → 2027)</td><td class="td-r">${fmtNum(totStak26)} → ${fmtNum(totStak)}</td></tr>
           <tr><td>Revenue (2026 → 2027)</td><td class="td-r">${fmtShort(totRev26)} → ${fmtShort(totRev)}</td></tr>
-          <tr><td>Hotel Guests (2026 → 2027)</td><td class="td-r ${hgChange<0?'t-red':'t-green'}">${fmtShort(totHG26)} → ${fmtShort(totHG)}</td></tr>
+          ${hg26Tracked
+            ?`<tr><td>Hotel Guests (2026 → 2027)</td><td class="td-r ${hgChange<0?'t-red':'t-green'}">${fmtShort(totHG26)} → ${fmtShort(totHG)}</td></tr>`
+            :`<tr><td>Hotel Guests (2026 → 2027)</td><td class="td-r"><span class="t-muted">N/A</span> → ${fmtShort(totHG)} <span class="t-muted" style="font-size:.7rem">· 2026 not tracked</span></td></tr>`}
         </tbody></table>
         ${activeViols.length>0?`<div style="margin-top:14px">
           <div style="font-size:.78rem;font-weight:600;color:var(--g700);margin-bottom:8px">Active Violations:</div>

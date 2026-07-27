@@ -1,7 +1,7 @@
 /* app.js */
 // Bump this together with every ?v= in index.html whenever the app files change, so reviewers
 // can never be left on a cached older build after a deploy.
-const APP_VERSION='2.0';
+const APP_VERSION='2.2';
 
 // Global filters are multi-select (arrays) and are the single source of truth for activity
 // scoping across every view — see ADR-0004. An empty array means "no restriction".
